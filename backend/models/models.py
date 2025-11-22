@@ -1,0 +1,64 @@
+import uuid
+from datetime import datetime, date
+from sqlalchemy import Column, String, Integer, Float, Date, DateTime, ForeignKey, Enum, UniqueConstraint
+from sqlalchemy.orm import relationship
+import enum
+from database import Base
+
+
+class GoalType(str, enum.Enum):
+    TIME = "time"
+    COUNT = "count"
+
+
+class GoalUnit(str, enum.Enum):
+    HOURS = "hours"
+    COUNT = "count"
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    email = Column(String, nullable=True)
+    tz = Column(String, default="Europe/Moscow")
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    goals = relationship("Goal", back_populates="user", cascade="all, delete-orphan")
+
+
+class Goal(Base):
+    __tablename__ = "goals"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=False)
+    type = Column(Enum(GoalType), nullable=False)
+    target = Column(Float, nullable=False)
+    unit = Column(Enum(GoalUnit), nullable=False)
+    period_start = Column(Date, nullable=False)
+    period_end = Column(Date, nullable=False)
+    priority = Column(Integer, default=2)
+    notes = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="goals")
+    logs = relationship("Log", back_populates="goal", cascade="all, delete-orphan")
+
+
+class Log(Base):
+    __tablename__ = "logs"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    goal_id = Column(String, ForeignKey("goals.id", ondelete="CASCADE"), nullable=False)
+    log_date = Column(Date, nullable=False)
+    minutes_spent = Column(Integer, default=0)
+    count_done = Column(Integer, default=0)
+    note = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    goal = relationship("Goal", back_populates="logs")
+
+    __table_args__ = (
+        UniqueConstraint('goal_id', 'log_date', name='uq_goal_log_date'),
+    )

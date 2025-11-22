@@ -1,8 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import get_settings
+from database import engine, Base
+from models import User, Goal, Log
 
 settings = get_settings()
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="GoalPace API",
