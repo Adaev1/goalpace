@@ -22,6 +22,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Подключаем роутеры
+from routers import auth, goals
+app.include_router(auth.router)
+app.include_router(goals.router)
+
 
 @app.get("/")
 def root():
