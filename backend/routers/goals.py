@@ -18,12 +18,10 @@ def create_goal(goal_data: GoalCreate, user_id: str = Query(...), db: Session = 
     """
     Создаёт новую цель для пользователя
     """
-    # Проверяем существование пользователя
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     
-    # Валидация периода
     if goal_data.period_start > goal_data.period_end:
         raise HTTPException(status_code=400, detail="Дата начала должна быть раньше даты окончания")
     
@@ -87,10 +85,8 @@ def update_goal(goal_id: str, goal_data: GoalUpdate, db: Session = Depends(get_d
     if not goal:
         raise HTTPException(status_code=404, detail="Цель не найдена")
     
-    # Обновляем только переданные поля
     update_data = goal_data.model_dump(exclude_unset=True)
     
-    # Валидация периода если меняются даты
     if "period_start" in update_data or "period_end" in update_data:
         start = update_data.get("period_start", goal.period_start)
         end = update_data.get("period_end", goal.period_end)

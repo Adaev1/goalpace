@@ -23,10 +23,11 @@ app.add_middleware(
 )
 
 # Подключаем роутеры
-from routers import auth, goals, logs
+from routers import auth, goals, logs, reports
 app.include_router(auth.router)
 app.include_router(goals.router)
 app.include_router(logs.router)
+app.include_router(reports.router)
 
 
 @app.get("/")

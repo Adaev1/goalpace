@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, List
 from models.models import GoalType, GoalUnit
 
 
@@ -81,3 +81,41 @@ class LogResponse(LogBase):
 
     class Config:
         from_attributes = True
+
+
+# Report schemas
+class ProgressMetrics(BaseModel):
+    actual: float
+    target: float
+    required_by_today: float
+    deficit: float
+    percent: float
+    status: str
+    days_elapsed: int
+    days_total: int
+    days_remaining: int
+
+
+class GoalProgressResponse(BaseModel):
+    goal: GoalResponse
+    metrics: ProgressMetrics
+
+
+class OverallSummary(BaseModel):
+    total_goals: int
+    on_track: int
+    at_risk: int
+    behind: int
+    total_percent: float
+
+
+class DailyActivity(BaseModel):
+    date: date
+    total_hours: float
+    total_count: int
+    goals_active: int
+
+
+class MonthReport(BaseModel):
+    month: str
+    days: List[DailyActivity]

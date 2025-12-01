@@ -20,12 +20,10 @@ def create_or_update_log(log_data: LogCreate, db: Session = Depends(get_db)):
     Создаёт новый лог или обновляет существующий (upsert по goal_id + log_date)
     Это основной способ записи прогресса
     """
-    # Проверяем существование цели
     goal = db.query(Goal).filter(Goal.id == log_data.goal_id).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Цель не найдена")
     
-    # Проверяем существующий лог на эту дату
     existing_log = db.query(Log).filter(
         and_(
             Log.goal_id == log_data.goal_id,
@@ -34,7 +32,6 @@ def create_or_update_log(log_data: LogCreate, db: Session = Depends(get_db)):
     ).first()
     
     if existing_log:
-        # Обновляем существующий
         existing_log.minutes_spent = log_data.minutes_spent
         existing_log.count_done = log_data.count_done
         existing_log.note = log_data.note
@@ -42,7 +39,6 @@ def create_or_update_log(log_data: LogCreate, db: Session = Depends(get_db)):
         db.refresh(existing_log)
         return existing_log
     else:
-        # Создаём новый
         new_log = Log(
             goal_id=log_data.goal_id,
             log_date=log_data.log_date,
@@ -103,7 +99,6 @@ def update_log(log_id: str, log_data: LogUpdate, db: Session = Depends(get_db)):
     if not log:
         raise HTTPException(status_code=404, detail="Лог не найден")
     
-    # Обновляем только переданные поля
     update_data = log_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(log, field, value)
