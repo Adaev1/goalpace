@@ -44,6 +44,19 @@ class Goal(Base):
 
     user = relationship("User", back_populates="goals")
     logs = relationship("Log", back_populates="goal", cascade="all, delete-orphan")
+    subgoals = relationship("Subgoal", back_populates="goal", cascade="all, delete-orphan")
+
+
+class Subgoal(Base):
+    __tablename__ = "subgoals"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    goal_id = Column(String, ForeignKey("goals.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=False)
+    target = Column(Float, nullable=False)
+
+    goal = relationship("Goal", back_populates="subgoals")
+    logs = relationship("Log", back_populates="subgoal", cascade="all, delete-orphan")
 
 
 class Log(Base):
@@ -51,6 +64,7 @@ class Log(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     goal_id = Column(String, ForeignKey("goals.id", ondelete="CASCADE"), nullable=False)
+    subgoal_id = Column(String, ForeignKey("subgoals.id", ondelete="CASCADE"), nullable=True)
     log_date = Column(Date, nullable=False)
     minutes_spent = Column(Integer, default=0)
     count_done = Column(Integer, default=0)
@@ -58,7 +72,8 @@ class Log(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     goal = relationship("Goal", back_populates="logs")
+    subgoal = relationship("Subgoal", back_populates="logs")
 
     __table_args__ = (
-        UniqueConstraint('goal_id', 'log_date', name='uq_goal_log_date'),
+        UniqueConstraint('goal_id', 'subgoal_id', 'log_date', name='uq_goal_subgoal_log_date'),
     )

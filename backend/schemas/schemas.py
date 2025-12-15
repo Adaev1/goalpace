@@ -23,6 +23,21 @@ class UserResponse(UserBase):
 
 
 # Goal schemas
+class SubgoalCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    target: float = Field(..., gt=0)
+
+
+class SubgoalRead(BaseModel):
+    id: str
+    title: str
+    target: float
+    current: float = 0
+
+    class Config:
+        from_attributes = True
+
+
 class GoalBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     type: GoalType
@@ -35,7 +50,7 @@ class GoalBase(BaseModel):
 
 
 class GoalCreate(GoalBase):
-    pass
+    plan: List[SubgoalCreate] = []
 
 
 class GoalUpdate(BaseModel):
@@ -51,6 +66,7 @@ class GoalResponse(GoalBase):
     id: str
     user_id: str
     created_at: datetime
+    plan: List[SubgoalRead] = []
 
     class Config:
         from_attributes = True
@@ -66,6 +82,7 @@ class LogBase(BaseModel):
 
 class LogCreate(LogBase):
     goal_id: str
+    subgoal_id: Optional[str] = None
 
 
 class LogUpdate(BaseModel):
@@ -77,6 +94,7 @@ class LogUpdate(BaseModel):
 class LogResponse(LogBase):
     id: str
     goal_id: str
+    subgoal_id: Optional[str] = None
     created_at: datetime
 
     class Config:

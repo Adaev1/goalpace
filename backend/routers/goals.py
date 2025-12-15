@@ -2,22 +2,56 @@
 Роутер для работы с целями (CRUD)
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 from datetime import date
 
 from database import get_db
-from models import Goal, User
-from schemas import GoalCreate, GoalUpdate, GoalResponse
+from models import Goal, User, Subgoal, Log, GoalType
+from schemas import GoalCreate, GoalUpdate, GoalResponse, SubgoalRead
 
 router = APIRouter(prefix="/goals", tags=["goals"])
 
 
+def _calc_subgoal_current(subgoal: Subgoal, goal_type: GoalType, db: Session) -> float:
+    """Считает текущий прогресс подзадачи из связанных логов."""
+    logs = db.query(Log).filter(Log.subgoal_id == subgoal.id).all()
+    if goal_type == GoalType.TIME:
+        return sum(log.minutes_spent for log in logs) / 60.0
+    return float(sum(log.count_done for log in logs))
+
+
+def _goal_to_response(goal: Goal, db: Session) -> dict:
+    """Преобразует ORM-объект цели в словарь с подзадачами и их прогрессом."""
+    plan = []
+    for sub in goal.subgoals:
+        current = _calc_subgoal_current(sub, goal.type, db)
+        plan.append(SubgoalRead(
+            id=sub.id,
+            title=sub.title,
+            target=sub.target,
+            current=round(current, 2)
+        ))
+    
+    return {
+        "id": goal.id,
+        "user_id": goal.user_id,
+        "title": goal.title,
+        "type": goal.type,
+        "target": goal.target,
+        "unit": goal.unit,
+        "period_start": goal.period_start,
+        "period_end": goal.period_end,
+        "priority": goal.priority,
+        "notes": goal.notes,
+        "created_at": goal.created_at,
+        "plan": plan
+    }
+
+
 @router.post("/", response_model=GoalResponse, status_code=201)
 def create_goal(goal_data: GoalCreate, user_id: str = Query(...), db: Session = Depends(get_db)):
-    """
-    Создаёт новую цель для пользователя
-    """
+    """Создает цель вместе со списком подзадач в одной транзакции."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
@@ -36,12 +70,21 @@ def create_goal(goal_data: GoalCreate, user_id: str = Query(...), db: Session = 
         priority=goal_data.priority,
         notes=goal_data.notes
     )
-    
     db.add(new_goal)
+    db.flush()
+    
+    for sub in goal_data.plan:
+        subgoal = Subgoal(
+            goal_id=new_goal.id,
+            title=sub.title,
+            target=sub.target
+        )
+        db.add(subgoal)
+    
     db.commit()
     db.refresh(new_goal)
     
-    return new_goal
+    return _goal_to_response(new_goal, db)
 
 
 @router.get("/", response_model=List[GoalResponse])
@@ -50,37 +93,32 @@ def get_goals(
     active_only: bool = Query(False, description="Показать только активные цели"),
     db: Session = Depends(get_db)
 ):
-    """
-    Получает список целей пользователя
-    Можно фильтровать только активные (не завершённые)
-    """
-    query = db.query(Goal).filter(Goal.user_id == user_id)
+    """Возвращает список целей пользователя с подзадачами."""
+    query = db.query(Goal).options(joinedload(Goal.subgoals)).filter(Goal.user_id == user_id)
     
     if active_only:
         today = date.today()
         query = query.filter(Goal.period_end >= today)
     
     goals = query.order_by(Goal.priority.desc(), Goal.created_at.desc()).all()
-    return goals
+    return [_goal_to_response(g, db) for g in goals]
 
 
 @router.get("/{goal_id}", response_model=GoalResponse)
 def get_goal(goal_id: str, db: Session = Depends(get_db)):
-    """
-    Получает одну цель по ID
-    """
-    goal = db.query(Goal).filter(Goal.id == goal_id).first()
+    """Возвращает одну цель по ID с подзадачами."""
+    goal = db.query(Goal).options(joinedload(Goal.subgoals)).filter(Goal.id == goal_id).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Цель не найдена")
     
-    return goal
+    return _goal_to_response(goal, db)
 
 
 @router.put("/{goal_id}", response_model=GoalResponse)
-def update_goal(goal_id: str, goal_data: GoalUpdate, db: Session = Depends(get_db)):
-    """
-    Обновляет цель (частичное обновление)
-    """
+def update_goal(
+    goal_id: str, goal_data: GoalUpdate, db: Session = Depends(get_db)
+):
+    """Обновляет поля цели (частичное обновление)."""
     goal = db.query(Goal).filter(Goal.id == goal_id).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Цель не найдена")
@@ -99,14 +137,12 @@ def update_goal(goal_id: str, goal_data: GoalUpdate, db: Session = Depends(get_d
     db.commit()
     db.refresh(goal)
     
-    return goal
+    return _goal_to_response(goal, db)
 
 
 @router.delete("/{goal_id}", status_code=204)
 def delete_goal(goal_id: str, db: Session = Depends(get_db)):
-    """
-    Удаляет цель и все связанные логи (cascade)
-    """
+    """Удаляет цель и все связанные подзадачи и логи."""
     goal = db.query(Goal).filter(Goal.id == goal_id).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Цель не найдена")

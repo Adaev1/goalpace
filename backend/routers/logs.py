@@ -8,7 +8,7 @@ from typing import List
 from datetime import date
 
 from database import get_db
-from models import Log, Goal
+from models import Log, Goal, Subgoal
 from schemas import LogCreate, LogUpdate, LogResponse
 
 router = APIRouter(prefix="/logs", tags=["logs"])
@@ -16,20 +16,26 @@ router = APIRouter(prefix="/logs", tags=["logs"])
 
 @router.post("/", response_model=LogResponse, status_code=201)
 def create_or_update_log(log_data: LogCreate, db: Session = Depends(get_db)):
-    """
-    Создаёт новый лог или обновляет существующий (upsert по goal_id + log_date)
-    Это основной способ записи прогресса
-    """
+    """Создает лог или обновляет существующий (upsert по goal_id + subgoal_id + date)."""
     goal = db.query(Goal).filter(Goal.id == log_data.goal_id).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Цель не найдена")
     
-    existing_log = db.query(Log).filter(
-        and_(
-            Log.goal_id == log_data.goal_id,
-            Log.log_date == log_data.log_date
-        )
-    ).first()
+    if log_data.subgoal_id:
+        subgoal = db.query(Subgoal).filter(Subgoal.id == log_data.subgoal_id).first()
+        if not subgoal or subgoal.goal_id != log_data.goal_id:
+            raise HTTPException(status_code=404, detail="Подзадача не найдена")
+    
+    filters = [
+        Log.goal_id == log_data.goal_id,
+        Log.log_date == log_data.log_date
+    ]
+    if log_data.subgoal_id:
+        filters.append(Log.subgoal_id == log_data.subgoal_id)
+    else:
+        filters.append(Log.subgoal_id.is_(None))
+    
+    existing_log = db.query(Log).filter(and_(*filters)).first()
     
     if existing_log:
         existing_log.minutes_spent = log_data.minutes_spent
@@ -41,6 +47,7 @@ def create_or_update_log(log_data: LogCreate, db: Session = Depends(get_db)):
     else:
         new_log = Log(
             goal_id=log_data.goal_id,
+            subgoal_id=log_data.subgoal_id,
             log_date=log_data.log_date,
             minutes_spent=log_data.minutes_spent,
             count_done=log_data.count_done,
@@ -59,10 +66,7 @@ def get_logs(
     date_to: date = Query(None, description="Конечная дата"),
     db: Session = Depends(get_db)
 ):
-    """
-    Получает список логов с фильтрацией
-    Можно фильтровать по цели и/или периоду
-    """
+    """Возвращает список логов с фильтрацией по цели и периоду."""
     query = db.query(Log)
     
     if goal_id:
@@ -80,9 +84,7 @@ def get_logs(
 
 @router.get("/{log_id}", response_model=LogResponse)
 def get_log(log_id: str, db: Session = Depends(get_db)):
-    """
-    Получает один лог по ID
-    """
+    """Возвращает один лог по ID."""
     log = db.query(Log).filter(Log.id == log_id).first()
     if not log:
         raise HTTPException(status_code=404, detail="Лог не найден")
@@ -92,9 +94,7 @@ def get_log(log_id: str, db: Session = Depends(get_db)):
 
 @router.put("/{log_id}", response_model=LogResponse)
 def update_log(log_id: str, log_data: LogUpdate, db: Session = Depends(get_db)):
-    """
-    Обновляет существующий лог (частичное обновление)
-    """
+    """Обновляет лог (частичное обновление)."""
     log = db.query(Log).filter(Log.id == log_id).first()
     if not log:
         raise HTTPException(status_code=404, detail="Лог не найден")
@@ -111,9 +111,7 @@ def update_log(log_id: str, log_data: LogUpdate, db: Session = Depends(get_db)):
 
 @router.delete("/{log_id}", status_code=204)
 def delete_log(log_id: str, db: Session = Depends(get_db)):
-    """
-    Удаляет лог
-    """
+    """Удаляет лог."""
     log = db.query(Log).filter(Log.id == log_id).first()
     if not log:
         raise HTTPException(status_code=404, detail="Лог не найден")
