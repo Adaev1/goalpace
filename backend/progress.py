@@ -24,7 +24,6 @@ def calculate_progress_metrics(goal: Goal, logs: List[Log], current_date: date =
     if current_date is None:
         current_date = date.today()
     
-    # Базовые параметры
     period_start = goal.period_start
     period_end = goal.period_end
     target = goal.target
@@ -52,10 +51,8 @@ def calculate_progress_metrics(goal: Goal, logs: List[Log], current_date: date =
     # Дефицит (положительное = отстаём, отрицательное = опережаем)
     deficit = required_by_today - actual
     
-    # Процент выполнения
     percent = (actual / target * 100) if target > 0 else 0
     
-    # Статус
     status = determine_status(actual, required_by_today, target, days_remaining)
     
     return {

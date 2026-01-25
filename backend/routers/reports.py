@@ -1,10 +1,15 @@
+"""
+Роутер для отчётов и статистики
+"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import date
 from database import get_db
 from models.models import User, Goal, Log
-from schemas.schemas import GoalProgressResponse, OverallSummary, MonthReport, DailyActivity
+from schemas.schemas import (
+    GoalProgressResponse, OverallSummary, MonthReport, DailyActivity
+)
 from routers.auth import get_current_user
 from progress import calculate_progress_metrics
 
@@ -13,13 +18,17 @@ router = APIRouter(
     tags=["reports"]
 )
 
+
 @router.get("/goal/{goal_id}", response_model=GoalProgressResponse)
 def get_goal_progress(
     goal_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    goal = db.query(Goal).filter(Goal.id == goal_id, Goal.user_id == current_user.id).first()
+    """Возвращает метрики прогресса по конкретной цели."""
+    goal = db.query(Goal).filter(
+        Goal.id == goal_id, Goal.user_id == current_user.id
+    ).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
     
@@ -36,6 +45,7 @@ def get_overall_summary(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Возвращает общую статистику по всем целям пользователя."""
     goals = db.query(Goal).filter(Goal.user_id == current_user.id).all()
     
     if not goals:
@@ -72,6 +82,7 @@ def get_month_report(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    """Возвращает подневную активность за указанный месяц."""
     try:
         start_date = date(year, month, 1)
         if month == 12:

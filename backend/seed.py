@@ -3,7 +3,6 @@ import os
 import random
 from datetime import date, timedelta
 
-# Добавляем текущую директорию в sys.path, чтобы импорты работали
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from database import SessionLocal, engine, Base

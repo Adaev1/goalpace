@@ -22,10 +22,8 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# Next.js
-.next/
-out/
-.vercel
+# Vite
+dist/
 
 # IDE
 .vscode/
@@ -46,3 +44,4 @@ Thumbs.db
 # Logs
 logs/
 *.log
+*.code-workspace

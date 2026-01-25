@@ -7,7 +7,7 @@ Web-приложение для планирования учебных целе
 ```
 goalpace/
 ├── backend/         # FastAPI + SQLAlchemy + SQLite
-├── frontend/        # Next.js + React + Tailwind CSS
+├── frontend/        # React + Vite + Tailwind CSS
 └── README.md
 ```
 
@@ -21,10 +21,10 @@ goalpace/
 - **Pydantic v2** — валидация данных
 
 ### Frontend
-- **Next.js** — React фреймворк
+- **React** — UI библиотека
+- **Vite** — сборщик
 - **Tailwind CSS** — стилизация
-- **Chart.js / Recharts** — графики
-- **TypeScript** — типизация
+- **React Router** — маршрутизация
 
 ## Быстрый старт
 
@@ -47,10 +47,10 @@ npm run dev
 ## Разработка
 
 Проект находится в разработке. MVP включает:
-- ✅ Создание и редактирование целей
-- ✅ Ежедневный учёт прогресса
-- ✅ Dashboard с прогресс-барами
-- ✅ Отчёты за неделю/месяц
+- Создание целей с подзадачами
+- Ежедневный учёт прогресса
+- Dashboard с прогресс-барами
+- Красная линия (идеальный темп)
 
 ## Лицензия
 

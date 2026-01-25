@@ -14,9 +14,7 @@ def get_current_user(
     user_id: str = Query(..., description="ID пользователя для авторизации"),
     db: Session = Depends(get_db)
 ) -> User:
-    """
-    Зависимость для получения текущего пользователя по ID
-    """
+    """Зависимость для получения текущего пользователя по ID."""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=401, detail="Пользователь не найден или не авторизован")
@@ -25,10 +23,7 @@ def get_current_user(
 
 @router.post("/demo", response_model=UserResponse)
 def get_or_create_demo_user(user_data: UserCreate, db: Session = Depends(get_db)):
-    """
-    Создаёт или возвращает демо-пользователя
-    Простая авторизация для MVP без паролей
-    """
+    """Создает или возвращает демо-пользователя по email."""
     if user_data.email:
         existing_user = db.query(User).filter(User.email == user_data.email).first()
         if existing_user:
