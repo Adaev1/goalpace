@@ -38,9 +38,13 @@ def create_or_update_log(log_data: LogCreate, db: Session = Depends(get_db)):
     existing_log = db.query(Log).filter(and_(*filters)).first()
     
     if existing_log:
-        existing_log.minutes_spent = log_data.minutes_spent
-        existing_log.count_done = log_data.count_done
-        existing_log.note = log_data.note
+        existing_log.minutes_spent += log_data.minutes_spent
+        existing_log.count_done += log_data.count_done
+        if log_data.note:
+            if existing_log.note:
+                existing_log.note += f" | {log_data.note}"
+            else:
+                existing_log.note = log_data.note
         db.commit()
         db.refresh(existing_log)
         return existing_log

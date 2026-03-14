@@ -2,8 +2,18 @@ import { useState } from 'react';
 import { createGoal } from '../api/goals';
 
 export default function CreateGoalModal({ userId, onClose, onSuccess }) {
+  const emojiOptions = ['🎯', '📚', '💻', '🏃', '🧠', '📝', '🔥', '🚀', '💡', '🏆'];
+
   const [title, setTitle] = useState('');
+  const [emoji, setEmoji] = useState('🎯');
   const [type, setType] = useState('time');
+  const [timeUnit, setTimeUnit] = useState('hours');
+  const [periodStart, setPeriodStart] = useState(new Date().toISOString().slice(0, 10));
+  const [periodEnd, setPeriodEnd] = useState(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 30);
+    return date.toISOString().slice(0, 10);
+  });
   const [subgoals, setSubgoals] = useState([{ title: '', target: '' }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -38,18 +48,41 @@ export default function CreateGoalModal({ userId, onClose, onSuccess }) {
       return;
     }
 
+    if (periodStart > periodEnd) {
+      setError('Дата начала должна быть раньше даты окончания');
+      return;
+    }
+
+    const parsedSubgoals = validSubgoals.map((s) => ({
+      title: s.title.trim(),
+      target: parseFloat(s.target)
+    }));
+
+    const normalizedSubgoals = type === 'time' && timeUnit === 'minutes'
+      ? parsedSubgoals.map((s) => ({
+          ...s,
+          target: Number((s.target / 60).toFixed(2))
+        }))
+      : parsedSubgoals;
+
+    const totalTarget = Number(
+      normalizedSubgoals.reduce((sum, item) => sum + item.target, 0).toFixed(2)
+    );
+
     setLoading(true);
     setError('');
 
     try {
-      await createGoal({
-        user_id: userId,
-        title: title.trim(),
-        type: type,
-        subgoals: validSubgoals.map(s => ({
-          title: s.title.trim(),
-          target: parseFloat(s.target)
-        }))
+      await createGoal(userId, {
+        title: `${emoji} ${title.trim()}`,
+        type,
+        target: totalTarget,
+        unit: type === 'time' ? 'hours' : 'count',
+        period_start: periodStart,
+        period_end: periodEnd,
+        priority: 2,
+        notes: null,
+        plan: normalizedSubgoals
       });
 
       onSuccess();
@@ -67,6 +100,26 @@ export default function CreateGoalModal({ userId, onClose, onSuccess }) {
         <h2 className="text-xl font-semibold mb-4">Новая цель</h2>
 
         <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm text-gray-600 mb-2">Эмодзи цели</label>
+            <div className="flex flex-wrap gap-2">
+              {emojiOptions.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setEmoji(item)}
+                  className={`w-10 h-10 rounded-lg border text-xl ${
+                    emoji === item
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="mb-4">
             <label className="block text-sm text-gray-600 mb-1">Название</label>
             <input
@@ -86,7 +139,7 @@ export default function CreateGoalModal({ userId, onClose, onSuccess }) {
                 onClick={() => setType('time')}
                 className={`flex-1 py-2 ${type === 'time' ? 'bg-blue-500 text-white' : 'bg-white'}`}
               >
-                Время (минуты)
+                Время
               </button>
               <button
                 type="button"
@@ -95,6 +148,49 @@ export default function CreateGoalModal({ userId, onClose, onSuccess }) {
               >
                 Количество
               </button>
+            </div>
+          </div>
+
+          {type === 'time' && (
+            <div className="mb-4">
+              <label className="block text-sm text-gray-600 mb-1">Единица времени</label>
+              <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setTimeUnit('minutes')}
+                  className={`flex-1 py-2 ${timeUnit === 'minutes' ? 'bg-blue-500 text-white' : 'bg-white'}`}
+                >
+                  Минуты
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTimeUnit('hours')}
+                  className={`flex-1 py-2 ${timeUnit === 'hours' ? 'bg-blue-500 text-white' : 'bg-white'}`}
+                >
+                  Часы
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Дата начала</label>
+              <input
+                type="date"
+                value={periodStart}
+                onChange={(e) => setPeriodStart(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Дата окончания</label>
+              <input
+                type="date"
+                value={periodEnd}
+                onChange={(e) => setPeriodEnd(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+              />
             </div>
           </div>
 
@@ -124,9 +220,14 @@ export default function CreateGoalModal({ userId, onClose, onSuccess }) {
                     type="number"
                     value={sub.target}
                     onChange={(e) => updateSubgoal(index, 'target', e.target.value)}
-                    placeholder={type === 'time' ? 'Мин' : 'Кол-во'}
+                    placeholder={
+                      type === 'time'
+                        ? (timeUnit === 'minutes' ? 'Минуты' : 'Часы')
+                        : 'Количество'
+                    }
                     className="w-24 border border-gray-300 rounded-lg px-3 py-2"
                     min="1"
+                    step="any"
                   />
                   {subgoals.length > 1 && (
                     <button

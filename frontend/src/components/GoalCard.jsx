@@ -1,7 +1,19 @@
 import { useState } from 'react';
+import { deleteGoal } from '../api/goals';
+
+import EditGoalModal from './EditGoalModal';
 
 export default function GoalCard({ goal, onLogProgress, onRefresh }) {
   const [expanded, setExpanded] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  const titleString = goal?.title || '';
+  const parsedTitle = titleString.match(/^(\p{Extended_Pictographic})\s*(.*)$/u);
+  const displayIcon = parsedTitle ? parsedTitle[1] : (goal?.type === 'time' ? '⏱' : '📊');
+  const displayTitle = parsedTitle ? parsedTitle[2] : titleString;
+
+  const unitLabel = goal.unit === 'hours' ? 'ч' : 'шт';
 
   const statusColors = {
     on_track: { bg: 'bg-green-100', text: 'text-green-700', label: 'В графике' },
@@ -11,7 +23,7 @@ export default function GoalCard({ goal, onLogProgress, onRefresh }) {
 
   const totalCurrent = goal.plan?.reduce((sum, s) => sum + s.current, 0) || 0;
   const percent = goal.target > 0 ? Math.round((totalCurrent / goal.target) * 100) : 0;
-  
+
   const daysTotal = Math.ceil(
     (new Date(goal.period_end) - new Date(goal.period_start)) / (1000 * 60 * 60 * 24)
   ) + 1;
@@ -19,29 +31,60 @@ export default function GoalCard({ goal, onLogProgress, onRefresh }) {
     (new Date() - new Date(goal.period_start)) / (1000 * 60 * 60 * 24)
   ));
   const requiredPercent = Math.min(100, Math.round((daysElapsed / daysTotal) * 100));
-  
+
   const status = percent >= requiredPercent * 0.85 ? 'on_track' 
     : percent >= requiredPercent * 0.65 ? 'at_risk' 
     : 'behind';
   
   const statusStyle = statusColors[status];
 
+  const handleDelete = async () => {
+    if (window.confirm(`Вы уверены, что хотите удалить цель "${displayTitle}"?`)) {
+      setIsDeleting(true);
+      try {
+        await deleteGoal(goal.id);
+        if (onRefresh) onRefresh();
+      } catch (error) {
+        alert(error.message);
+        setIsDeleting(false);
+      }
+    }
+  };
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+    <>
+    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm relative group">
+      <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button 
+          onClick={() => setIsEditing(true)}
+          className="text-gray-400 hover:text-blue-500"
+          title="Редактировать цель"
+        >
+          ✎
+        </button>
+        <button 
+          onClick={handleDelete}
+          disabled={isDeleting}
+          className="text-gray-400 hover:text-red-500"
+          title="Удалить цель"
+        >
+          ✕
+        </button>
+      </div>
       <div className="flex items-start gap-4">
         <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-2xl">
-          {goal.type === 'time' ? '⏱' : '📊'}
+          {displayIcon}
         </div>
         
         <div className="flex-1">
-          <h3 className="text-xl font-semibold text-gray-800">{goal.title}</h3>
+          <h3 className="text-xl font-semibold text-gray-800">{displayTitle}</h3>
           
           <div className="flex items-center gap-3 mt-1">
             <span className={`px-2 py-0.5 rounded text-sm ${statusStyle.bg} ${statusStyle.text}`}>
               {statusStyle.label}
             </span>
             <span className="text-sm text-gray-500">
-              Норма: {Math.round(goal.target * requiredPercent / 100)} {goal.unit}
+              Норма: {Math.round(goal.target * requiredPercent / 100)} {unitLabel}
             </span>
           </div>
 
@@ -57,7 +100,7 @@ export default function GoalCard({ goal, onLogProgress, onRefresh }) {
               style={{ left: `${requiredPercent}%` }}
             />
             <div className="text-right text-sm text-gray-600 mt-1">
-              {goal.target} ({percent}%)
+              {goal.target} {unitLabel} ({percent}%)
             </div>
           </div>
 
@@ -87,7 +130,7 @@ export default function GoalCard({ goal, onLogProgress, onRefresh }) {
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-sm text-gray-700">{sub.title}</span>
                   <span className="text-sm text-gray-500">
-                    {sub.current} / {sub.target}
+                    {sub.current} / {sub.target} {unitLabel}
                   </span>
                 </div>
                 <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
@@ -102,5 +145,14 @@ export default function GoalCard({ goal, onLogProgress, onRefresh }) {
         </div>
       )}
     </div>
+
+    {isEditing && (
+      <EditGoalModal
+        goal={goal}
+        onClose={() => setIsEditing(false)}
+        onSuccess={onRefresh}
+      />
+    )}
+    </>
   );
 }
