@@ -8,12 +8,34 @@ export default function EditGoalModal({ goal, onClose, onSuccess }) {
   const parsedTitle = titleString.match(/^(\p{Extended_Pictographic})\s*(.*)$/u);
   const initialEmoji = parsedTitle ? parsedTitle[1] : '🎯';
   const initialTitle = parsedTitle ? parsedTitle[2] : titleString;
+  const initialSubgoals = (goal?.plan || []).map((sub) => ({
+    id: sub.id,
+    title: sub.title,
+    target: String(sub.target)
+  }));
 
   const [title, setTitle] = useState(initialTitle);
   const [emoji, setEmoji] = useState(initialEmoji);
   const [periodEnd, setPeriodEnd] = useState(goal.period_end);
+  const [subgoals, setSubgoals] = useState(
+    initialSubgoals.length > 0 ? initialSubgoals : [{ id: null, title: '', target: '' }]
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const updateSubgoal = (index, field, value) => {
+    setSubgoals((prev) =>
+      prev.map((sub, i) => (i === index ? { ...sub, [field]: value } : sub))
+    );
+  };
+
+  const addSubgoal = () => {
+    setSubgoals((prev) => [...prev, { id: null, title: '', target: '' }]);
+  };
+
+  const removeSubgoal = (index) => {
+    setSubgoals((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,13 +50,76 @@ export default function EditGoalModal({ goal, onClose, onSuccess }) {
       return;
     }
 
+    const normalizedSubgoals = subgoals
+      .map((sub) => ({
+        id: sub.id,
+        title: sub.title.trim(),
+        target: parseFloat(sub.target)
+      }))
+      .filter((sub) => sub.title && !Number.isNaN(sub.target) && sub.target > 0);
+
+    if (normalizedSubgoals.length === 0) {
+      setError('Добавьте хотя бы одну корректную подзадачу');
+      return;
+    }
+
+    const totalTarget = Number(
+      normalizedSubgoals.reduce((sum, item) => sum + item.target, 0).toFixed(2)
+    );
+
     setLoading(true);
     setError('');
 
     try {
       await updateGoal(goal.id, {
         title: `${emoji} ${title.trim()}`,
-        period_end: periodEnd
+        period_end: periodEnd,
+        target: totalTarget,
+        plan: normalizedSubgoals
+      });
+
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    if (!goal) return;
+
+    let filteredSubgoals = subgoals.filter(s => s.title.trim() !== '' && Number(s.target) > 0);
+    
+    if (filteredSubgoals.length === 0) {
+      filteredSubgoals = [{
+        title: title || 'Основной этап',
+        target: 1,
+        unit: unit,
+        current: 0
+      }];
+    }
+
+    const normalizedSubgoals = filteredSubgoals.map(s => {
+      const isNew = String(s.id).startsWith('temp-');
+      return {
+        id: isNew ? undefined : s.id,
+        title: s.title.trim(),
+        target: parseFloat(s.target)
+      };
+    }).filter(s => s.title && !Number.isNaN(s.target) && s.target > 0);
+
+    setLoading(true);
+    setError('');
+
+    try {
+      await updateGoal(goal.id, {
+        title: `${emoji} ${title.trim()}`,
+        period_end: periodEnd,
+        target: normalizedSubgoals.reduce((sum, s) => sum + s.target, 0),
+        plan: normalizedSubgoals
       });
 
       onSuccess();
@@ -90,6 +175,51 @@ export default function EditGoalModal({ goal, onClose, onSuccess }) {
               onChange={(e) => setPeriodEnd(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2"
             />
+          </div>
+
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-sm text-gray-600">Подзадачи</label>
+              <button
+                type="button"
+                onClick={addSubgoal}
+                className="text-blue-500 text-sm hover:underline"
+              >
+                + Добавить
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {subgoals.map((sub, index) => (
+                <div key={`${sub.id || 'new'}-${index}`} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={sub.title}
+                    onChange={(e) => updateSubgoal(index, 'title', e.target.value)}
+                    placeholder="Название подзадачи"
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2"
+                  />
+                  <input
+                    type="number"
+                    value={sub.target}
+                    onChange={(e) => updateSubgoal(index, 'target', e.target.value)}
+                    placeholder={goal.type === 'time' ? 'Часы' : 'Количество'}
+                    className="w-28 border border-gray-300 rounded-lg px-3 py-2"
+                    step="any"
+                    min="0.01"
+                  />
+                  {subgoals.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeSubgoal(index)}
+                      className="text-red-500 px-2"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           {error && (

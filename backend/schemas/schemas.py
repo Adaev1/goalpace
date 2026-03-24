@@ -38,6 +38,12 @@ class SubgoalRead(BaseModel):
         from_attributes = True
 
 
+class SubgoalUpdate(BaseModel):
+    id: Optional[str] = None
+    title: str = Field(..., min_length=1, max_length=200)
+    target: float = Field(..., gt=0)
+
+
 class GoalBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     type: GoalType
@@ -60,6 +66,7 @@ class GoalUpdate(BaseModel):
     period_end: Optional[date] = None
     priority: Optional[int] = Field(None, ge=1, le=3)
     notes: Optional[str] = None
+    plan: Optional[List[SubgoalUpdate]] = None
 
 
 class GoalResponse(GoalBase):

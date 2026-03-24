@@ -119,17 +119,54 @@ def update_goal(
     goal_id: str, goal_data: GoalUpdate, db: Session = Depends(get_db)
 ):
     """Обновляет поля цели (частичное обновление)."""
-    goal = db.query(Goal).filter(Goal.id == goal_id).first()
+    goal = db.query(Goal).options(joinedload(Goal.subgoals)).filter(Goal.id == goal_id).first()
     if not goal:
         raise HTTPException(status_code=404, detail="Цель не найдена")
     
     update_data = goal_data.model_dump(exclude_unset=True)
+    plan_data = update_data.pop("plan", None)
     
     if "period_start" in update_data or "period_end" in update_data:
         start = update_data.get("period_start", goal.period_start)
         end = update_data.get("period_end", goal.period_end)
         if start > end:
             raise HTTPException(status_code=400, detail="Дата начала должна быть раньше даты окончания")
+
+    if plan_data is not None:
+        if len(plan_data) == 0:
+            raise HTTPException(status_code=400, detail="Должна быть хотя бы одна подзадача")
+
+        existing_subgoals = {sub.id: sub for sub in goal.subgoals}
+        incoming_ids = set()
+        total_target = 0.0
+
+        for sub_data in plan_data:
+            sub_id = sub_data.get("id")
+            title = sub_data["title"].strip()
+            target = sub_data["target"]
+
+            if sub_id:
+                subgoal = existing_subgoals.get(sub_id)
+                if not subgoal:
+                    raise HTTPException(status_code=404, detail="Подзадача не найдена")
+                subgoal.title = title
+                subgoal.target = target
+                incoming_ids.add(sub_id)
+            else:
+                new_subgoal = Subgoal(
+                    goal_id=goal.id,
+                    title=title,
+                    target=target
+                )
+                db.add(new_subgoal)
+
+            total_target += target
+
+        for existing_sub in list(goal.subgoals):
+            if existing_sub.id not in incoming_ids:
+                db.delete(existing_sub)
+
+        goal.target = round(total_target, 2)
     
     for field, value in update_data.items():
         setattr(goal, field, value)
