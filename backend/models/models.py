@@ -44,7 +44,7 @@ class Goal(Base):
 
     user = relationship("User", back_populates="goals")
     logs = relationship("Log", back_populates="goal", cascade="all, delete-orphan")
-    subgoals = relationship("Subgoal", back_populates="goal", cascade="all, delete-orphan")
+    subgoals = relationship("Subgoal", back_populates="goal", cascade="all, delete-orphan", order_by="Subgoal.position")
 
 
 class Subgoal(Base):
@@ -54,6 +54,7 @@ class Subgoal(Base):
     goal_id = Column(String, ForeignKey("goals.id", ondelete="CASCADE"), nullable=False)
     title = Column(String, nullable=False)
     target = Column(Float, nullable=False)
+    position = Column(Integer, default=0)
 
     goal = relationship("Goal", back_populates="subgoals")
     logs = relationship("Log", back_populates="subgoal", cascade="all, delete-orphan")

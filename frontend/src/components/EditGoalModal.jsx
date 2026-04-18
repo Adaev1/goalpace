@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { updateGoal } from '../api/goals';
 
 export default function EditGoalModal({ goal, onClose, onSuccess }) {
-  const emojiOptions = ['🎯', '📚', '💻', '🏃', '🧠', '📝', '🔥', '🚀', '💡', '🏆'];
+  const emojiOptions = ['🎯', '📚', '💻', '🏃', '🧠', '📝', '🔥', '🚀', '💡', '🏆', '✅', '📈', '💪', '🎓', '🎨', '🏋️', '⭐', '📖'];
   
   const titleString = goal?.title || '';
   const parsedTitle = titleString.match(/^(\p{Extended_Pictographic})\s*(.*)$/u);
@@ -23,18 +23,20 @@ export default function EditGoalModal({ goal, onClose, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const updateSubgoal = (index, field, value) => {
-    setSubgoals((prev) =>
-      prev.map((sub, i) => (i === index ? { ...sub, [field]: value } : sub))
-    );
-  };
-
   const addSubgoal = () => {
-    setSubgoals((prev) => [...prev, { id: null, title: '', target: '' }]);
+    setSubgoals([...subgoals, { id: null, title: '', target: '' }]);
   };
 
   const removeSubgoal = (index) => {
-    setSubgoals((prev) => prev.filter((_, i) => i !== index));
+    if (subgoals.length > 1) {
+      setSubgoals(subgoals.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateSubgoal = (index, field, value) => {
+    const updated = [...subgoals];
+    updated[index][field] = value;
+    setSubgoals(updated);
   };
 
   const handleSubmit = async (e) => {
@@ -52,7 +54,7 @@ export default function EditGoalModal({ goal, onClose, onSuccess }) {
 
     const normalizedSubgoals = subgoals
       .map((sub) => ({
-        id: sub.id,
+        id: sub.id || undefined,
         title: sub.title.trim(),
         target: parseFloat(sub.target)
       }))
@@ -75,50 +77,6 @@ export default function EditGoalModal({ goal, onClose, onSuccess }) {
         title: `${emoji} ${title.trim()}`,
         period_end: periodEnd,
         target: totalTarget,
-        plan: normalizedSubgoals
-      });
-
-      onSuccess();
-      onClose();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSave = async (e) => {
-    e.preventDefault();
-    if (!goal) return;
-
-    let filteredSubgoals = subgoals.filter(s => s.title.trim() !== '' && Number(s.target) > 0);
-    
-    if (filteredSubgoals.length === 0) {
-      filteredSubgoals = [{
-        title: title || 'Основной этап',
-        target: 1,
-        unit: unit,
-        current: 0
-      }];
-    }
-
-    const normalizedSubgoals = filteredSubgoals.map(s => {
-      const isNew = String(s.id).startsWith('temp-');
-      return {
-        id: isNew ? undefined : s.id,
-        title: s.title.trim(),
-        target: parseFloat(s.target)
-      };
-    }).filter(s => s.title && !Number.isNaN(s.target) && s.target > 0);
-
-    setLoading(true);
-    setError('');
-
-    try {
-      await updateGoal(goal.id, {
-        title: `${emoji} ${title.trim()}`,
-        period_end: periodEnd,
-        target: normalizedSubgoals.reduce((sum, s) => sum + s.target, 0),
         plan: normalizedSubgoals
       });
 

@@ -2,26 +2,29 @@ import { useState, useEffect } from 'react';
 import GoalCard from '../components/GoalCard';
 import CreateGoalModal from '../components/CreateGoalModal';
 import LogProgressModal from '../components/LogProgressModal';
+import { useToast } from '../components/Toast';
 import { fetchGoals, getOrCreateUser } from '../api/goals';
 
-export default function Dashboard() {
+export default function Dashboard({ email }) {
   const [goals, setGoals] = useState([]);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [logGoal, setLogGoal] = useState(null);
+  const toast = useToast();
 
   useEffect(() => {
     initUser();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email]);
 
   const initUser = async () => {
     try {
-      const userData = await getOrCreateUser('demo@example.com');
+      const userData = await getOrCreateUser(email);
       setUser(userData);
       loadGoals(userData.id);
     } catch (err) {
-      console.error('Ошибка инициализации пользователя:', err);
+      toast.error('Не удалось инициализировать пользователя');
     }
   };
 
@@ -31,7 +34,7 @@ export default function Dashboard() {
       const data = await fetchGoals(userId);
       setGoals(data);
     } catch (err) {
-      console.error('Ошибка загрузки целей:', err);
+      toast.error('Не удалось загрузить цели');
     } finally {
       setLoading(false);
     }

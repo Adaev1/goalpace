@@ -144,3 +144,15 @@ class DailyActivity(BaseModel):
 class MonthReport(BaseModel):
     month: str
     days: List[DailyActivity]
+
+
+class AIPlanRequest(BaseModel):
+    prompt: str
+
+
+class AIPlanResponse(BaseModel):
+    title: str
+    target_type: str
+    time_unit: Optional[str] = None
+    end_date: Optional[date] = None
+    subgoals: List[dict]

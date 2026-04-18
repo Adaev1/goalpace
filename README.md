@@ -1,56 +1,66 @@
 # GoalPace
 
-Web-приложение для планирования учебных целей на месяц и ежедневного учёта прогресса.
+Веб-приложение для постановки целей на месяц и ежедневного отслеживания прогресса. Поддерживает цели по времени (часы, минуты) и по количеству (страницы, задачи и т.д.). Есть генерация плана с помощью ИИ.
 
-## Структура проекта
+## Возможности
 
-```
-goalpace/
-├── backend/         # FastAPI + SQLAlchemy + SQLite
-├── frontend/        # React + Vite + Tailwind CSS
-└── README.md
-```
+- Создание целей с подзадачами и дедлайнами
+- Генерация плана через ИИ (автоматическое разбиение цели на подзадачи)
+- Логирование ежедневного прогресса
+- Прогресс-бары и статусы (по плану / отставание / завершено)
+- Страница аналитики: итоги месяца, streak, график активности
+- Простая авторизация по email
 
-## Технологии
+## Стек
 
-### Backend
-- **FastAPI** — веб-фреймворк
-- **SQLAlchemy** — ORM для работы с БД
-- **SQLite** — база данных
-- **Alembic** — миграции БД
-- **Pydantic v2** — валидация данных
+| Слой | Технологии |
+|------|-----------|
+| Backend | FastAPI, SQLAlchemy, Alembic, Pydantic v2, SQLite |
+| Frontend | React 19, Vite, Tailwind CSS 4, React Router |
+| ИИ | Ollama |
 
-### Frontend
-- **React** — UI библиотека
-- **Vite** — сборщик
-- **Tailwind CSS** — стилизация
-- **React Router** — маршрутизация
+## Запуск
 
-## Быстрый старт
+### 1. Backend
 
-### Backend
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # для Windows: venv\Scripts\activate
+source venv/bin/activate
 pip install -r requirements.txt
+alembic upgrade head
 uvicorn main:app --reload
 ```
 
-### Frontend
+Backend запустится на `http://localhost:8000`. Документация API доступна по адресу `http://localhost:8000/docs`.
+
+### 2. Frontend
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-## Разработка
+Frontend запустится на `http://localhost:5173`. Запросы к API проксируются автоматически через Vite.
 
-Проект находится в разработке. MVP включает:
-- Создание целей с подзадачами
-- Ежедневный учёт прогресса
-- Dashboard с прогресс-барами
-- Красная линия (идеальный темп)
+## Структура проекта
+
+```
+backend/
+  main.py            — точка входа, подключение роутеров
+  models/models.py   — модели User, Goal, Subgoal, Log
+  schemas/schemas.py — Pydantic-схемы запросов и ответов
+  routers/           — эндпоинты (auth, goals, logs, reports, ai)
+  alembic/           — миграции БД
+  config.py          — настройки (URL Ollama, модель)
+
+frontend/
+  src/
+    pages/           — Dashboard, Analytics, LoginPage
+    components/      — GoalCard, модалки, Sidebar, Toast
+    api/goals.js     — функции для работы с API
+```
 
 ## Лицензия
 

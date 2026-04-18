@@ -22,12 +22,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Подключаем роутеры
-from routers import auth, goals, logs, reports
+from routers import auth, goals, logs, reports, ai
 app.include_router(auth.router)
 app.include_router(goals.router)
 app.include_router(logs.router)
 app.include_router(reports.router)
+app.include_router(ai.router)
 
 
 @app.get("/")

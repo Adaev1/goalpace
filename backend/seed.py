@@ -13,7 +13,7 @@ def seed_data():
     
     print("Seeding data...")
     
-    email = "student@example.com"
+    email = "demo@example.com"
     user = db.query(User).filter(User.email == email).first()
     if not user:
         user = User(email=email, tz="Europe/Moscow")

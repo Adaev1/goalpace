@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { createGoal } from '../api/goals';
 
 export default function CreateGoalModal({ userId, onClose, onSuccess }) {
-  const emojiOptions = ['🎯', '📚', '💻', '🏃', '🧠', '📝', '🔥', '🚀', '💡', '🏆'];
+  const emojiOptions = ['🎯', '📚', '💻', '🏃', '🧠', '📝', '🔥', '🚀', '💡', '🏆', '✅', '📈', '💪', '🎓', '🎨', '🏋️', '⭐', '📖'];
 
   const [title, setTitle] = useState('');
   const [emoji, setEmoji] = useState('🎯');
@@ -17,6 +17,59 @@ export default function CreateGoalModal({ userId, onClose, onSuccess }) {
   const [subgoals, setSubgoals] = useState([{ title: '', target: '' }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const [showAIPrompt, setShowAIPrompt] = useState(false);
+  const [aiPrompt, setAIPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  const handleGenerate = async () => {
+    if (!aiPrompt.trim()) return;
+    setIsGenerating(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/ai/generate-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: aiPrompt })
+      });
+
+      if (!res.ok) {
+        throw new Error('Ошибка генерации. Проверьте подключение локального ИИ.');
+      }
+
+      const data = await res.json();
+
+      if (data.title) setTitle(data.title.replace(/^[\s\p{Emoji}]+/gu, ''));
+      if (data.target_type) {
+        const isTime = data.target_type === 'time';
+        setType(isTime ? 'time' : 'count');
+        if (isTime) {
+          setTimeUnit(data.time_unit === 'minutes' ? 'minutes' : 'hours');
+        }
+      }
+
+      if (data.end_date) {
+        setPeriodEnd(data.end_date);
+        setPeriodStart(new Date().toISOString().slice(0, 10));
+      }
+
+      if (data.subgoals && data.subgoals.length > 0) {
+        const mappedSubgoals = data.subgoals.map(s => ({
+          title: s.title,
+          target: s.target_total.toString()
+        }));
+        setSubgoals(mappedSubgoals);
+      }
+
+      setShowAIPrompt(false);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const addSubgoal = () => {
     setSubgoals([...subgoals, { title: '', target: '' }]);
@@ -97,7 +150,66 @@ export default function CreateGoalModal({ userId, onClose, onSuccess }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
-        <h2 className="text-xl font-semibold mb-4">Новая цель</h2>
+        <div className="flex justify-between items-center mb-4 relative">
+          <h2 className="text-xl font-semibold">Новая цель</h2>
+          <div className="relative">
+            <button
+              type="button"
+              onMouseEnter={() => setShowTooltip(true)}
+              onMouseLeave={() => setShowTooltip(false)}
+              onClick={() => setShowAIPrompt(!showAIPrompt)}
+              className="flex items-center gap-2 px-4 py-2 border border-yellow-400 text-yellow-700 bg-yellow-50 hover:bg-yellow-100 rounded-lg transition-colors font-medium text-sm shadow-sm"
+              title="Сгенерировать план с ИИ"
+            >
+              <span className="text-lg">✨</span> Сгенерировать с ИИ
+            </button>
+            
+            {showTooltip && (
+              <div className="absolute right-0 top-12 w-72 bg-gray-800 text-white text-xs rounded-lg p-3 shadow-lg z-10 font-normal">
+                Для лучшего результата опишите свой текущий уровень, желаемую глубину погружения и сколько часов в день вы сможете выполнять цель. Чем больше деталей, тем лучше план и точнее дедлайн!
+              </div>
+            )}
+          </div>
+        </div>
+
+        {showAIPrompt && (
+          <div className="mb-6 bg-indigo-50 p-4 rounded-xl border border-indigo-100 relative overflow-hidden">
+            {isGenerating && (
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
+                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+                <p className="text-indigo-800 font-medium">ИИ анализирует и составляет план...</p>
+              </div>
+            )}
+            
+            <h3 className="text-md font-medium text-indigo-900 mb-2 flex items-center gap-2">
+              <span>✨</span> Сгенерировать с помощью ИИ
+            </h3>
+            <textarea
+              value={aiPrompt}
+              onChange={(e) => setAIPrompt(e.target.value)}
+              placeholder="Я новичок, хочу освоить базу языка Python за месяц. Готов уделять 2 часа в день..."
+              className="w-full border border-indigo-200 rounded-lg px-3 py-2 h-24 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 mb-3 resize-none"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAIPrompt(false)}
+                className="px-3 py-1.5 text-sm text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors"
+                disabled={isGenerating}
+              >
+                Скрыть
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={!aiPrompt.trim() || isGenerating}
+                className="px-4 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                Создать план
+              </button>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">

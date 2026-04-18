@@ -73,11 +73,12 @@ def create_goal(goal_data: GoalCreate, user_id: str = Query(...), db: Session = 
     db.add(new_goal)
     db.flush()
     
-    for sub in goal_data.plan:
+    for idx, sub in enumerate(goal_data.plan):
         subgoal = Subgoal(
             goal_id=new_goal.id,
             title=sub.title,
-            target=sub.target
+            target=sub.target,
+            position=idx
         )
         db.add(subgoal)
     
@@ -140,7 +141,7 @@ def update_goal(
         incoming_ids = set()
         total_target = 0.0
 
-        for sub_data in plan_data:
+        for idx, sub_data in enumerate(plan_data):
             sub_id = sub_data.get("id")
             title = sub_data["title"].strip()
             target = sub_data["target"]
@@ -151,12 +152,14 @@ def update_goal(
                     raise HTTPException(status_code=404, detail="Подзадача не найдена")
                 subgoal.title = title
                 subgoal.target = target
+                subgoal.position = idx
                 incoming_ids.add(sub_id)
             else:
                 new_subgoal = Subgoal(
                     goal_id=goal.id,
                     title=title,
-                    target=target
+                    target=target,
+                    position=idx
                 )
                 db.add(new_subgoal)
 

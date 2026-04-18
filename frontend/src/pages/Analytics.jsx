@@ -4,6 +4,7 @@ import {
   fetchOverallSummary,
   getOrCreateUser
 } from '../api/goals';
+import { useToast } from '../components/Toast';
 
 function formatDateLabel(dateString) {
   const date = new Date(dateString);
@@ -16,15 +17,17 @@ function formatMonthInput(date) {
   return `${year}-${month}`;
 }
 
-export default function Analytics() {
+export default function Analytics({ email }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [summary, setSummary] = useState(null);
   const [days, setDays] = useState([]);
   const [selectedMonth, setSelectedMonth] = useState(formatMonthInput(new Date()));
+  const toast = useToast();
 
   useEffect(() => {
     loadAnalytics(selectedMonth);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth]);
 
   const loadAnalytics = async (monthValue) => {
@@ -32,7 +35,7 @@ export default function Analytics() {
     setError('');
 
     try {
-      const user = await getOrCreateUser('demo@example.com');
+      const user = await getOrCreateUser(email);
       const [year, month] = monthValue.split('-').map(Number);
 
       const [summaryData, monthData] = await Promise.all([
@@ -44,7 +47,7 @@ export default function Analytics() {
       setDays(monthData.days ?? []);
     } catch (err) {
       setError('Не удалось загрузить аналитику. Проверь, что backend запущен.');
-      console.error('Ошибка загрузки аналитики:', err);
+      toast.error('Ошибка загрузки аналитики');
     } finally {
       setLoading(false);
     }
@@ -55,10 +58,39 @@ export default function Analytics() {
     return Math.max(...days.map((day) => day.total_hours), 1);
   }, [days]);
 
-  const recentDays = useMemo(() => {
-    return [...days]
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, 7);
+  const monthStats = useMemo(() => {
+    if (!days.length) return { totalHours: 0, totalCount: 0, activeDays: 0, streak: 0, avgHours: 0 };
+
+    const totalHours = days.reduce((sum, d) => sum + d.total_hours, 0);
+    const totalCount = days.reduce((sum, d) => sum + d.total_count, 0);
+    const activeDays = days.filter(d => d.total_hours > 0 || d.total_count > 0).length;
+    const avgHours = activeDays > 0 ? totalHours / activeDays : 0;
+
+    const sorted = [...days].sort((a, b) => new Date(b.date) - new Date(a.date));
+    let streak = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < sorted.length; i++) {
+      const dayDate = new Date(sorted[i].date);
+      dayDate.setHours(0, 0, 0, 0);
+      const expected = new Date(today);
+      expected.setDate(expected.getDate() - i);
+
+      if (dayDate.getTime() === expected.getTime() && (sorted[i].total_hours > 0 || sorted[i].total_count > 0)) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+
+    return {
+      totalHours: Math.round(totalHours * 10) / 10,
+      totalCount,
+      activeDays,
+      streak,
+      avgHours: Math.round(avgHours * 10) / 10
+    };
   }, [days]);
 
   const warningCount = summary ? summary.at_risk + summary.behind : 0;
@@ -85,7 +117,7 @@ export default function Analytics() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl p-5 shadow-sm">
           <div className="text-gray-500 text-sm">Всего целей</div>
           <div className="text-3xl font-bold mt-1">
@@ -104,10 +136,39 @@ export default function Analytics() {
             {loading ? '—' : warningCount}
           </div>
         </div>
+        <div className="bg-white rounded-xl p-5 shadow-sm">
+          <div className="text-gray-500 text-sm">Средний прогресс</div>
+          <div className="text-3xl font-bold mt-1 text-blue-500">
+            {loading ? '—' : `${summary?.total_percent ?? 0}%`}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-2xl font-bold text-indigo-600">{loading ? '—' : monthStats.totalHours}</div>
+          <div className="text-xs text-gray-500 mt-1">Часов за месяц</div>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-2xl font-bold text-indigo-600">{loading ? '—' : monthStats.totalCount}</div>
+          <div className="text-xs text-gray-500 mt-1">Действий</div>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-2xl font-bold text-indigo-600">{loading ? '—' : monthStats.activeDays}</div>
+          <div className="text-xs text-gray-500 mt-1">Активных дней</div>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-2xl font-bold text-indigo-600">{loading ? '—' : monthStats.avgHours}</div>
+          <div className="text-xs text-gray-500 mt-1">Ч/день (средн.)</div>
+        </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm text-center">
+          <div className="text-2xl font-bold text-orange-500">{loading ? '—' : monthStats.streak}</div>
+          <div className="text-xs text-gray-500 mt-1">Дней подряд</div>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
-        <h2 className="text-lg font-semibold mb-4">Активность по дням (часы)</h2>
+        <h2 className="text-lg font-semibold mb-4">Активность по дням</h2>
 
         {loading ? (
           <div className="h-64 flex items-center justify-center text-gray-400">Загрузка...</div>
@@ -116,22 +177,38 @@ export default function Analytics() {
             За выбранный месяц нет логов
           </div>
         ) : (
-          <div className="h-64 flex items-end gap-2 overflow-x-auto pb-3">
-            {days.map((day) => {
-              const heightPercent = Math.max((day.total_hours / maxHours) * 100, 4);
-              return (
-                <div key={day.date} className="min-w-8.5 flex flex-col items-center justify-end gap-2">
-                  <div
-                    className="w-7 bg-blue-500 rounded-t-md transition-all"
-                    style={{ height: `${heightPercent}%` }}
-                    title={`${formatDateLabel(day.date)}: ${day.total_hours} ч.`}
-                  />
-                  <span className="text-[11px] text-gray-500 rotate-[-35deg] origin-top-left">
-                    {formatDateLabel(day.date)}
+          <div className="relative">
+            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none" style={{ bottom: '28px' }}>
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="border-t border-gray-100 relative">
+                  <span className="absolute -top-3 -left-1 text-[10px] text-gray-300">
+                    {Math.round(maxHours * (1 - i / 3) * 10) / 10}
                   </span>
                 </div>
-              );
-            })}
+              ))}
+            </div>
+
+            <div className="h-64 flex items-end gap-1 overflow-x-auto pb-7 relative z-10">
+              {days.map((day) => {
+                const heightPercent = Math.max((day.total_hours / maxHours) * 100, 2);
+                const hasActivity = day.total_hours > 0 || day.total_count > 0;
+                return (
+                  <div key={day.date} className="flex-1 min-w-[18px] max-w-[32px] flex flex-col items-center justify-end gap-1 group relative">
+                    <div className="hidden group-hover:block absolute -top-16 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 shadow-lg z-20 whitespace-nowrap">
+                      <div className="font-medium">{formatDateLabel(day.date)}</div>
+                      <div>{day.total_hours} ч / {day.total_count} шт.</div>
+                    </div>
+                    <div
+                      className={`w-full rounded-t-md transition-all ${hasActivity ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-200'}`}
+                      style={{ height: `${heightPercent}%`, minHeight: hasActivity ? '4px' : '2px' }}
+                    />
+                    <span className="text-[10px] text-gray-400 leading-none">
+                      {new Date(day.date).getDate()}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>
@@ -141,19 +218,29 @@ export default function Analytics() {
 
         {loading ? (
           <div className="text-center py-8 text-gray-400">Загрузка...</div>
-        ) : recentDays.length === 0 ? (
+        ) : days.length === 0 ? (
           <div className="text-center py-8 text-gray-400">Записей пока нет</div>
         ) : (
-          <div className="space-y-3">
-            {recentDays.map((day) => (
+          <div className="space-y-2">
+            {[...days]
+              .filter(d => d.total_hours > 0 || d.total_count > 0)
+              .sort((a, b) => new Date(b.date) - new Date(a.date))
+              .slice(0, 10)
+              .map((day) => (
               <div
                 key={day.date}
-                className="border border-gray-100 rounded-lg p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-2"
+                className="border border-gray-100 rounded-lg px-4 py-3 flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors"
               >
-                <div className="font-medium">{new Date(day.date).toLocaleDateString('ru-RU')}</div>
-                <div className="text-sm text-gray-600">Часы: {day.total_hours}</div>
-                <div className="text-sm text-gray-600">Счётчик: {day.total_count}</div>
-                <div className="text-sm text-gray-600">Активных целей: {day.goals_active}</div>
+                <div className="font-medium text-sm min-w-[90px]">
+                  {new Date(day.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', weekday: 'short' })}
+                </div>
+                <div className="flex gap-4 text-sm text-gray-600">
+                  {day.total_hours > 0 && <span>{day.total_hours} ч</span>}
+                  {day.total_count > 0 && <span>{day.total_count} шт.</span>}
+                </div>
+                <div className="text-xs text-gray-400">
+                  {day.goals_active} {day.goals_active === 1 ? 'цель' : day.goals_active < 5 ? 'цели' : 'целей'}
+                </div>
               </div>
             ))}
           </div>

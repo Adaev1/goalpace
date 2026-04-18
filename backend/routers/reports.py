@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import date
 from database import get_db
-from models.models import User, Goal, Log
-from schemas.schemas import (
+from models import User, Goal, Log
+from schemas import (
     GoalProgressResponse, OverallSummary, MonthReport, DailyActivity
 )
 from routers.auth import get_current_user

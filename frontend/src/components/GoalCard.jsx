@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { deleteGoal } from '../api/goals';
-
+import { useToast } from './Toast';
 import EditGoalModal from './EditGoalModal';
 
 export default function GoalCard({ goal, onLogProgress, onRefresh }) {
   const [expanded, setExpanded] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const toast = useToast();
 
   const titleString = goal?.title || '';
   const parsedTitle = titleString.match(/^(\p{Extended_Pictographic})\s*(.*)$/u);
@@ -64,7 +65,7 @@ export default function GoalCard({ goal, onLogProgress, onRefresh }) {
         await deleteGoal(goal.id);
         if (onRefresh) onRefresh();
       } catch (error) {
-        alert(error.message);
+        toast.error(error.message);
         setIsDeleting(false);
       }
     }
@@ -91,7 +92,7 @@ export default function GoalCard({ goal, onLogProgress, onRefresh }) {
         </button>
       </div>
       <div className="flex items-start gap-4">
-        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-2xl">
+        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-3xl">
           {displayIcon}
         </div>
         
