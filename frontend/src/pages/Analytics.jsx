@@ -53,9 +53,9 @@ export default function Analytics({ email }) {
     }
   };
 
-  const maxHours = useMemo(() => {
+  const maxActivity = useMemo(() => {
     if (!days.length) return 1;
-    return Math.max(...days.map((day) => day.total_hours), 1);
+    return Math.max(...days.map((day) => day.total_hours + day.total_count), 1);
   }, [days]);
 
   const monthStats = useMemo(() => {
@@ -92,6 +92,8 @@ export default function Analytics({ email }) {
       avgHours: Math.round(avgHours * 10) / 10
     };
   }, [days]);
+
+  const [tooltip, setTooltip] = useState(null);
 
   const warningCount = summary ? summary.at_risk + summary.behind : 0;
 
@@ -177,38 +179,63 @@ export default function Analytics({ email }) {
             За выбранный месяц нет логов
           </div>
         ) : (
-          <div className="relative">
-            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none" style={{ bottom: '28px' }}>
+          <div className="relative flex">
+            <div className="w-8 h-52 flex flex-col justify-between shrink-0">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="border-t border-gray-100 relative">
-                  <span className="absolute -top-3 -left-1 text-[10px] text-gray-300">
-                    {Math.round(maxHours * (1 - i / 3) * 10) / 10}
-                  </span>
-                </div>
+                <span key={i} className="text-[10px] text-gray-300 text-right leading-none">
+                  {Math.round(maxActivity * (1 - i / 3) * 10) / 10}
+                </span>
               ))}
             </div>
 
-            <div className="h-64 flex items-end gap-1 overflow-x-auto pb-7 relative z-10">
-              {days.map((day) => {
-                const heightPercent = Math.max((day.total_hours / maxHours) * 100, 2);
-                const hasActivity = day.total_hours > 0 || day.total_count > 0;
-                return (
-                  <div key={day.date} className="flex-1 min-w-[18px] max-w-[32px] flex flex-col items-center justify-end gap-1 group relative">
-                    <div className="hidden group-hover:block absolute -top-16 bg-gray-800 text-white text-xs rounded-lg px-3 py-2 shadow-lg z-20 whitespace-nowrap">
-                      <div className="font-medium">{formatDateLabel(day.date)}</div>
-                      <div>{day.total_hours} ч / {day.total_count} шт.</div>
-                    </div>
+            <div className="flex-1 relative">
+              <div className="absolute inset-x-0 top-0 h-52 flex flex-col justify-between pointer-events-none">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="border-t border-gray-100" />
+                ))}
+              </div>
+
+              <div className="flex gap-1 overflow-x-auto relative z-10">
+                {days.map((day) => {
+                  const activity = day.total_hours + day.total_count;
+                  const heightPercent = Math.max((activity / maxActivity) * 100, 2);
+                  const hasActivity = activity > 0;
+                  return (
                     <div
-                      className={`w-full rounded-t-md transition-all ${hasActivity ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-200'}`}
-                      style={{ height: `${heightPercent}%`, minHeight: hasActivity ? '4px' : '2px' }}
-                    />
-                    <span className="text-[10px] text-gray-400 leading-none">
-                      {new Date(day.date).getDate()}
-                    </span>
-                  </div>
-                );
-              })}
+                      key={day.date}
+                      className="flex-1 min-w-[18px] max-w-[32px] flex flex-col items-center cursor-pointer"
+                      onMouseEnter={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setTooltip({ day, x: rect.left + rect.width / 2, y: rect.top });
+                      }}
+                      onMouseLeave={() => setTooltip(null)}
+                    >
+                      <div className="w-full h-52 flex items-end">
+                        <div
+                          className={`w-full rounded-t-md transition-all ${hasActivity ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-200'}`}
+                          style={{ height: `${heightPercent}%`, minHeight: hasActivity ? '4px' : '2px' }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-gray-400 leading-none mt-1">
+                        {new Date(day.date).getDate()}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
+
+            {tooltip && (
+              <div
+                className="fixed bg-gray-800 text-white text-xs rounded-lg px-3 py-2 shadow-lg z-50 whitespace-nowrap pointer-events-none"
+                style={{ left: tooltip.x, top: tooltip.y - 8, transform: 'translate(-50%, -100%)' }}
+              >
+                <div className="font-medium">{formatDateLabel(tooltip.day.date)}</div>
+                {tooltip.day.total_hours > 0 && <div>{tooltip.day.total_hours} ч</div>}
+                {tooltip.day.total_count > 0 && <div>{tooltip.day.total_count} шт.</div>}
+                {!tooltip.day.total_hours && !tooltip.day.total_count && <div>Нет активности</div>}
+              </div>
+            )}
           </div>
         )}
       </div>

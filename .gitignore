@@ -46,3 +46,6 @@ Thumbs.db
 logs/
 *.log
 *.code-workspace
+
+# Scripts
+run_backend.sh

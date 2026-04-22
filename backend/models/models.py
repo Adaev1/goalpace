@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from sqlalchemy import Column, String, Integer, Float, Date, DateTime, ForeignKey, Enum, UniqueConstraint
 from sqlalchemy.orm import relationship
 import enum
@@ -22,7 +22,7 @@ class User(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     email = Column(String, nullable=True)
     tz = Column(String, default="Europe/Moscow")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     goals = relationship("Goal", back_populates="user", cascade="all, delete-orphan")
 
@@ -40,7 +40,7 @@ class Goal(Base):
     period_end = Column(Date, nullable=False)
     priority = Column(Integer, default=2)
     notes = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="goals")
     logs = relationship("Log", back_populates="goal", cascade="all, delete-orphan")
@@ -70,7 +70,7 @@ class Log(Base):
     minutes_spent = Column(Integer, default=0)
     count_done = Column(Integer, default=0)
     note = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     goal = relationship("Goal", back_populates="logs")
     subgoal = relationship("Subgoal", back_populates="logs")

@@ -4,7 +4,7 @@
 
 ## Технологии
 
-- React 18
+- React 19
 - Vite
 - Tailwind CSS
 - React Router
