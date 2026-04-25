@@ -19,14 +19,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    with op.batch_alter_table('logs') as batch_op:
-        batch_op.drop_constraint('uq_goal_log_date', type_='unique')
-        batch_op.create_unique_constraint(
-            'uq_goal_subgoal_log_date',
-            ['goal_id', 'subgoal_id', 'log_date']
-        )
+    pass
+
 
 def downgrade() -> None:
-    with op.batch_alter_table('logs') as batch_op:
-        batch_op.drop_constraint('uq_goal_subgoal_log_date', type_='unique')
-        batch_op.create_unique_constraint('uq_goal_log_date', ['goal_id', 'log_date'])
+    pass
