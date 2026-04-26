@@ -44,6 +44,22 @@ npm run dev
 
 Frontend запустится на `http://localhost:5173`. Запросы к API проксируются автоматически через Vite.
 
+### 3. Docker (альтернативный способ)
+
+Можно запустить весь проект одной командой через Docker:
+
+```bash
+docker-compose up --build
+```
+
+Приложение будет доступно на `http://localhost`. Nginx раздает фронтенд и проксирует API-запросы на backend.
+
+Для остановки:
+
+```bash
+docker-compose down
+```
+
 ## Структура проекта
 
 ```

@@ -53,11 +53,6 @@ export default function Analytics({ email }) {
     }
   };
 
-  const maxActivity = useMemo(() => {
-    if (!days.length) return 1;
-    return Math.max(...days.map((day) => day.total_hours + day.total_count), 1);
-  }, [days]);
-
   const monthStats = useMemo(() => {
     if (!days.length) return { totalHours: 0, totalCount: 0, activeDays: 0, streak: 0, avgHours: 0 };
 
@@ -94,6 +89,14 @@ export default function Analytics({ email }) {
   }, [days]);
 
   const [tooltip, setTooltip] = useState(null);
+  const [chartMode, setChartMode] = useState('all');
+
+  const maxByMode = useMemo(() => {
+    if (!days.length) return 1;
+    if (chartMode === 'time') return Math.max(...days.map(d => d.total_hours), 1);
+    if (chartMode === 'count') return Math.max(...days.map(d => d.total_count), 1);
+    return Math.max(...days.map(d => d.total_hours + d.total_count), 1);
+  }, [days, chartMode]);
 
   const warningCount = summary ? summary.at_risk + summary.behind : 0;
 
@@ -170,7 +173,29 @@ export default function Analytics({ email }) {
       </div>
 
       <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
-        <h2 className="text-lg font-semibold mb-4">Активность по дням</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Активность по дням</h2>
+          <div className="flex border border-gray-300 rounded-lg overflow-hidden text-sm">
+            <button
+              onClick={() => setChartMode('all')}
+              className={`px-3 py-1.5 ${chartMode === 'all' ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            >
+              Всё
+            </button>
+            <button
+              onClick={() => setChartMode('time')}
+              className={`px-3 py-1.5 ${chartMode === 'time' ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            >
+              Время
+            </button>
+            <button
+              onClick={() => setChartMode('count')}
+              className={`px-3 py-1.5 ${chartMode === 'count' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+            >
+              Количество
+            </button>
+          </div>
+        </div>
 
         {loading ? (
           <div className="h-64 flex items-center justify-center text-gray-400">Загрузка...</div>
@@ -183,7 +208,7 @@ export default function Analytics({ email }) {
             <div className="w-8 h-52 flex flex-col justify-between shrink-0">
               {[...Array(4)].map((_, i) => (
                 <span key={i} className="text-[10px] text-gray-300 text-right leading-none">
-                  {Math.round(maxActivity * (1 - i / 3) * 10) / 10}
+                  {Math.round(maxByMode * (1 - i / 3) * 10) / 10}
                 </span>
               ))}
             </div>
@@ -195,11 +220,40 @@ export default function Analytics({ email }) {
                 ))}
               </div>
 
-              <div className="flex gap-1 overflow-x-auto relative z-10">
+              <div className="flex gap-1 relative z-10">
                 {days.map((day) => {
-                  const activity = day.total_hours + day.total_count;
-                  const heightPercent = Math.max((activity / maxActivity) * 100, 2);
-                  const hasActivity = activity > 0;
+                  const hoursPercent = maxByMode > 0 ? (day.total_hours / maxByMode) * 100 : 0;
+                  const countPercent = maxByMode > 0 ? (day.total_count / maxByMode) * 100 : 0;
+                  const hasActivity = day.total_hours > 0 || day.total_count > 0;
+
+                  let barContent;
+                  if (chartMode === 'all') {
+                    const totalPercent = Math.max(hoursPercent + countPercent, hasActivity ? 2 : 0);
+                    barContent = (
+                      <div
+                        className="w-full flex flex-col justify-end rounded-t-md overflow-hidden"
+                        style={{ height: `${Math.min(totalPercent, 100)}%`, minHeight: hasActivity ? '4px' : '2px' }}
+                      >
+                        {day.total_count > 0 && (
+                          <div className="w-full bg-green-400 hover:bg-green-500 transition-all" style={{ flex: `${countPercent} 0 0%` }} />
+                        )}
+                        {day.total_hours > 0 && (
+                          <div className="w-full bg-blue-500 hover:bg-blue-600 transition-all" style={{ flex: `${hoursPercent} 0 0%` }} />
+                        )}
+                      </div>
+                    );
+                  } else {
+                    const value = chartMode === 'time' ? day.total_hours : day.total_count;
+                    const percent = Math.max((value / maxByMode) * 100, value > 0 ? 2 : 0);
+                    const color = chartMode === 'time' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-green-500 hover:bg-green-600';
+                    barContent = (
+                      <div
+                        className={`w-full rounded-t-md transition-all ${value > 0 ? color : 'bg-gray-200'}`}
+                        style={{ height: `${Math.min(percent, 100)}%`, minHeight: value > 0 ? '4px' : '2px' }}
+                      />
+                    );
+                  }
+
                   return (
                     <div
                       key={day.date}
@@ -211,10 +265,7 @@ export default function Analytics({ email }) {
                       onMouseLeave={() => setTooltip(null)}
                     >
                       <div className="w-full h-52 flex items-end">
-                        <div
-                          className={`w-full rounded-t-md transition-all ${hasActivity ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-200'}`}
-                          style={{ height: `${heightPercent}%`, minHeight: hasActivity ? '4px' : '2px' }}
-                        />
+                        {barContent}
                       </div>
                       <span className="text-[10px] text-gray-400 leading-none mt-1">
                         {new Date(day.date).getDate()}
@@ -224,6 +275,19 @@ export default function Analytics({ email }) {
                 })}
               </div>
             </div>
+
+            {chartMode === 'all' && (
+              <div className="flex gap-4 mt-2 ml-8 text-xs text-gray-500">
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-sm bg-blue-500" />
+                  <span>Время (ч)</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-sm bg-green-400" />
+                  <span>Количество (шт.)</span>
+                </div>
+              </div>
+            )}
 
             {tooltip && (
               <div

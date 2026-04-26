@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     timezone: str = "Europe/Moscow"
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
     ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen2.5:7b"
+    ollama_model: str = "qwen3.5:9b"
     
     class Config:
         env_file = ".env"

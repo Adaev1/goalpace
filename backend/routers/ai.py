@@ -3,6 +3,7 @@ from schemas import AIPlanRequest, AIPlanResponse
 from config import get_settings
 import httpx
 import json
+import re
 import datetime
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -58,6 +59,7 @@ async def generate_plan(request: AIPlanRequest):
         ],
         "format": "json",
         "stream": False,
+        "think": False,
         "options": {
             "temperature": 0.3
         }
@@ -70,7 +72,8 @@ async def generate_plan(request: AIPlanRequest):
             
             data = response.json()
             ai_content = data.get("message", {}).get("content", "")
-            
+            ai_content = re.sub(r"<think>.*?</think>", "", ai_content, flags=re.DOTALL).strip()
+
             try:
                 parsed_json = json.loads(ai_content)
                 return parsed_json
