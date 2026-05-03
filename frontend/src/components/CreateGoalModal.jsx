@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { createGoal } from '../api/goals';
+import { createGoal, API_URL } from '../api/goals';
 
 export default function CreateGoalModal({ userId, onClose, onSuccess }) {
   const emojiOptions = ['🎯', '📚', '💻', '🏃', '🧠', '📝', '🔥', '🚀', '💡', '🏆', '✅', '📈', '💪', '🎓', '🎨', '🏋️', '⭐', '📖'];
@@ -29,7 +29,7 @@ export default function CreateGoalModal({ userId, onClose, onSuccess }) {
     setError('');
 
     try {
-      const res = await fetch('/api/ai/generate-plan', {
+      const res = await fetch(`${API_URL}/ai/generate-plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: aiPrompt })
